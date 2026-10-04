@@ -1,24 +1,4 @@
-import pytest
-
-from app import app
 from models import db, InventoryItem
-
-
-@pytest.fixture
-def client():
-    app.config["TESTING"] = True
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-
-    with app.test_client() as client:
-        yield client
-
-    with app.app_context():
-        db.session.remove()
-        db.drop_all()
 
 
 def test_home(client):
@@ -57,7 +37,7 @@ def test_create_item(client):
     assert item["price"] == 100
 
 
-def test_get_item(client):
+def test_get_item(client, app):
     item = InventoryItem(
         name="Salt",
         barcode="111111",
@@ -76,7 +56,7 @@ def test_get_item(client):
     assert response.get_json()["name"] == "Salt"
 
 
-def test_update_item(client):
+def test_update_item(client, app):
     item = InventoryItem(
         name="Milk",
         barcode="222222",
@@ -105,7 +85,7 @@ def test_update_item(client):
     assert updated_item["price"] == 120
 
 
-def test_delete_item(client):
+def test_delete_item(client, app):
     item = InventoryItem(
         name="Bread",
         barcode="333333",
@@ -156,3 +136,4 @@ def test_duplicate_barcode(client):
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
+    
