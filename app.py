@@ -1,24 +1,36 @@
-from flask import Flask, jsonify, request
+from flask import Flask, Blueprint, jsonify, request
 from models import db, InventoryItem
 import requests
 
-
-app = Flask(__name__)
-
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///inventory.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-db.init_app(app)
+bp = Blueprint("api", __name__)
 
 
-@app.route("/")
+def create_app(config=None):
+    app = Flask(__name__)
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///inventory.db"
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    if config:
+        app.config.update(config)
+
+    db.init_app(app)
+    app.register_blueprint(bp)
+
+    with app.app_context():
+        db.create_all()
+
+    return app
+
+
+@bp.route("/")
 def home():
     return jsonify({
         "message": "Inventory Management System API"
     })
 
 
-@app.route("/items", methods=["GET"])
+@bp.route("/items", methods=["GET"])
 def get_items():
     items = InventoryItem.query.all()
 
@@ -27,7 +39,7 @@ def get_items():
     ])
 
 
-@app.route("/items/<int:item_id>", methods=["GET"])
+@bp.route("/items/<int:item_id>", methods=["GET"])
 def get_item(item_id):
     item = db.session.get(InventoryItem, item_id)
 
@@ -39,7 +51,7 @@ def get_item(item_id):
     return jsonify(item.to_dict())
 
 
-@app.route("/items", methods=["POST"])
+@bp.route("/items", methods=["POST"])
 def create_item():
     data = request.get_json()
 
@@ -75,7 +87,7 @@ def create_item():
     return jsonify(new_item.to_dict()), 201
 
 
-@app.route("/items/<int:item_id>", methods=["PATCH"])
+@bp.route("/items/<int:item_id>", methods=["PATCH"])
 def update_item(item_id):
     item = db.session.get(InventoryItem, item_id)
 
@@ -114,7 +126,7 @@ def update_item(item_id):
     return jsonify(item.to_dict())
 
 
-@app.route("/items/<int:item_id>", methods=["DELETE"])
+@bp.route("/items/<int:item_id>", methods=["DELETE"])
 def delete_item(item_id):
     item = db.session.get(InventoryItem, item_id)
 
@@ -131,7 +143,7 @@ def delete_item(item_id):
     })
 
 
-@app.route("/external/barcode/<barcode>", methods=["GET"])
+@bp.route("/external/barcode/<barcode>", methods=["GET"])
 def get_external_product(barcode):
     url = f"https://world.openfoodfacts.org/api/v2/product/{barcode}.json"
 
@@ -180,7 +192,8 @@ def get_external_product(barcode):
         "category": product.get("categories", "Unknown category")
     })
 
-@app.route("/external/barcode/<barcode>/save", methods=["POST"])
+
+@bp.route("/external/barcode/<barcode>/save", methods=["POST"])
 def save_external_product(barcode):
     existing_item = InventoryItem.query.filter_by(barcode=barcode).first()
 
@@ -226,7 +239,5 @@ def save_external_product(barcode):
 
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-
-    app.run(debug=True)
+    create_app().run(debug=True)
+    
